@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed56db8126e10e94e9c7757e5a777485, type: 3}
+  m_Name: CipherMessage 1
+  m_EditorClassIdentifier: 
+  _title: Hello There
+  _encryptedBody: User/User>
+  _tags:
+  - cipher
+  - urgent
+  _expectedAnswer: start
+  _terminalFeed: "Hey there, newbie. Sadly, I won\u2019t be there to show you the
+    ropes.\r\nBut the job is simple, really! You will get crypted messages from our
+    astronauts to your Terminal. Don\u2019t be intimidated, I left you a reference
+    sheet to decrypt them :P\r\nUse Decryptor to send decrypted messages to our database.
+    You will be rewarded for each decrypted message. Piece of cake!\r\nDon\u2019t
+    be shy to make notes if messages turn out to be long and tricky.\r\nIf you feel
+    bored, well\u2026 It\u2019s not a lot but there is a minesweeper I downloaded!\r\nHave
+    fun and have a good night.\r\nYour mentor Susan xoxo\n\n\n9(20)_1_20(5)19(20)"
