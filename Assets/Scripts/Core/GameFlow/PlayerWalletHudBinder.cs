@@ -8,7 +8,7 @@ namespace LudumDare2026.Core.GameFlow
     /// <summary>
     /// Binds <see cref="IPlayerWallet.Dollars"/> to a TMP label (e.g. shop HUD or taskbar counter).
     /// </summary>
-    public sealed class PlayerWalletHudBinder : MonoBehaviour
+    public class PlayerWalletHudBinder : MonoBehaviour
     {
         [SerializeField] private TextMeshProUGUI _dollarsLabel;
         [SerializeField] private string _format = "{0}";

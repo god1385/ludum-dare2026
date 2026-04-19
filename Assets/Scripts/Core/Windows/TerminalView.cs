@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
+using LudumDare2026.Core.Desktop;
 using LudumDare2026.Core.GameFlow;
 using TMPro;
 using UniRx;
@@ -11,6 +13,9 @@ namespace LudumDare2026.Core.Windows
 {
     public class TerminalView : MonoBehaviour, IWindowTaskbarIconSource
     {
+        private const string DefaultBadEndingCipherBlock =
+            "PHNGLUI MGLWNAFH\nCTHULHU RLYEH\nWGAHNAGL FHTAGN";
+
         [SerializeField] private TextMeshProUGUI _output;
         [SerializeField] private ScrollRect _scrollRect;
         [SerializeField] private float _secondsPerCharacter = 0.025f;
@@ -21,10 +26,27 @@ namespace LudumDare2026.Core.Windows
         [SerializeField] private Sprite _taskbarHighlightSprite;
         [SerializeField] private Sprite _taskbarPressedSprite;
 
+        [Header("Alien message ambience")]
+        [SerializeField] private AudioSource _alienAudioSource;
+        [SerializeField] private AudioClip _alienAudioClip;
+
+        [Header("Endings")]
+        [SerializeField] private float _badEndingClockRampSeconds = 4f;
+        [SerializeField] private float _badEndingPostDelaySeconds = 1f;
+        [SerializeField] private float _goodEndingCreditsDelaySeconds = 5f;
+        [SerializeField] private float _goodEndingLinePauseSeconds = 1f;
+
         private IGameFlowPresentationModel _presentation;
+        private IEndingCipherMessages _endings;
+        private GameExitFlowController _exitFlow;
+
+        private DesktopWindow _desktopWindow;
+        private DesktopClockWidget _clockWidget;
+
         private CompositeDisposable _disposables;
         private Coroutine _typeRoutine;
         private Coroutine _waitChromeRoutine;
+        private Coroutine _endingRoutine;
         private string _pendingFeed;
         private CipherMessageData _boundMessage;
         private bool _showFullTextOnNextOpen;
@@ -34,7 +56,15 @@ namespace LudumDare2026.Core.Windows
         public Sprite TaskbarPressedSprite => _taskbarPressedSprite;
 
         [Inject]
-        private void Construct([InjectOptional] IGameFlowPresentationModel presentation) => _presentation = presentation;
+        private void Construct(
+            [InjectOptional] IGameFlowPresentationModel presentation,
+            [InjectOptional] IEndingCipherMessages endings,
+            [InjectOptional] GameExitFlowController exitFlow)
+        {
+            _presentation = presentation;
+            _endings = endings;
+            _exitFlow = exitFlow;
+        }
 
         private void Awake()
         {
@@ -58,6 +88,8 @@ namespace LudumDare2026.Core.Windows
 
         private void OnEnable()
         {
+            TerminalNotificationIndicator.NotifyTerminalOpened();
+
             ResolvePresentationIfNeeded();
             if (_presentation == null)
                 return;
@@ -73,7 +105,16 @@ namespace LudumDare2026.Core.Windows
 
             var controller = Object.FindAnyObjectByType<GameFlowController>();
             if (controller != null)
+            {
                 _presentation = controller.Presentation;
+                _endings ??= controller;
+            }
+        }
+
+        public void BindDesktopServices(DesktopWindow desktopWindow, DesktopClockWidget cornerClockWidget)
+        {
+            _desktopWindow = desktopWindow;
+            _clockWidget = cornerClockWidget;
         }
 
         private void OnDestroy()
@@ -87,14 +128,19 @@ namespace LudumDare2026.Core.Windows
             if (_boundMessage != null)
                 _showFullTextOnNextOpen = true;
 
+            StopAlienAudio();
             StopDeferredChromeWait();
             StopTypewriter();
+            StopEndingRoutine();
         }
 
         public void Display(CipherMessageData message)
         {
             StopDeferredChromeWait();
             StopTypewriter();
+            StopEndingRoutine();
+            StopAlienAudio();
+
             if (message == null)
             {
                 _boundMessage = null;
@@ -118,6 +164,38 @@ namespace LudumDare2026.Core.Windows
                 return;
             }
 
+            var playback = _presentation != null
+                ? _presentation.TerminalEndingPlayback.Value
+                : TerminalEndingPlayback.None;
+
+            if (playback == TerminalEndingPlayback.Bad && _endings?.BadEnding != null)
+            {
+                _pendingFeed = message.TerminalFeedText;
+                _endingRoutine = StartCoroutine(WaitUntilTerminalVisibleThenBadEnding(message));
+                return;
+            }
+
+            if (playback == TerminalEndingPlayback.Good && _endings?.GoodEnding != null)
+            {
+                _pendingFeed = message.TerminalFeedText;
+                _endingRoutine = StartCoroutine(WaitUntilTerminalVisibleThenGoodEnding(message));
+                return;
+            }
+
+            if (playback == TerminalEndingPlayback.GoodCredits && _endings?.GoodEndingCredits != null)
+            {
+                _pendingFeed = message.TerminalFeedText;
+                if (ShouldDeferPlaybackUntilVisible())
+                    _waitChromeRoutine = StartCoroutine(WaitUntilVisibleThenGoodCredits(message));
+                else
+                {
+                    TryPlayAlienAudio(message);
+                    StartTypewriter(_pendingFeed);
+                }
+
+                return;
+            }
+
             _pendingFeed = message.TerminalFeedText;
             if (ShouldDeferPlaybackUntilVisible())
             {
@@ -125,7 +203,250 @@ namespace LudumDare2026.Core.Windows
                 return;
             }
 
+            TryPlayAlienAudio(message);
             StartTypewriter(_pendingFeed);
+        }
+
+        private void StopEndingRoutine()
+        {
+            if (_endingRoutine == null)
+                return;
+
+            StopCoroutine(_endingRoutine);
+            _endingRoutine = null;
+        }
+
+        private IEnumerator BadEndingSequence(CipherMessageData message)
+        {
+            TryPlayAlienAudio(message);
+
+            if (_presentation != null)
+            {
+                _presentation.IsDecoderSubmissionEnabled.Value = false;
+                _presentation.BlockAllPlayerInput.Value = false;
+            }
+
+            SetTerminalCommandsLocked(true);
+
+            var feed = message.TerminalFeedText;
+            if (string.IsNullOrWhiteSpace(feed))
+                feed = "…";
+
+            yield return Typewriter(feed);
+
+            yield return GlitchFlickerRoutine();
+
+            _output.text = DefaultBadEndingCipherBlock;
+            RefreshLayoutAndMaybePinToBottom();
+
+            if (_presentation != null)
+                _presentation.BlockAllPlayerInput.Value = true;
+
+            var reveal = message.EndingTranslationRevealText ?? string.Empty;
+            var pending = 2;
+            IEnumerator RunAndSignal(IEnumerator inner)
+            {
+                yield return StartCoroutine(inner);
+                pending--;
+            }
+
+            StartCoroutine(RunAndSignal(RevealPlaintextDigitToLetter(reveal)));
+            StartCoroutine(RunAndSignal(ClockRampOrWait()));
+            while (pending > 0)
+                yield return null;
+
+            yield return new WaitForSeconds(_badEndingPostDelaySeconds);
+
+            SetTerminalCommandsLocked(false);
+
+            if (_presentation != null)
+                _presentation.BlockAllPlayerInput.Value = false;
+
+            if (_exitFlow != null)
+                _exitFlow.ShowEndGame(EndingKind.Bad);
+
+            _endingRoutine = null;
+        }
+
+        private IEnumerator ClockRampOrWait()
+        {
+            if (_clockWidget != null)
+                yield return _clockWidget.AnimateToNinetyNine(_badEndingClockRampSeconds);
+            else
+                yield return new WaitForSeconds(_badEndingClockRampSeconds);
+        }
+
+        private IEnumerator WaitUntilTerminalVisibleThenBadEnding(CipherMessageData message)
+        {
+            while (ShouldDeferPlaybackUntilVisible())
+                yield return null;
+
+            yield return BadEndingSequence(message);
+        }
+
+        private IEnumerator WaitUntilTerminalVisibleThenGoodEnding(CipherMessageData message)
+        {
+            while (ShouldDeferPlaybackUntilVisible())
+                yield return null;
+
+            yield return GoodEndingSequence(message);
+        }
+
+        private IEnumerator WaitUntilVisibleThenGoodCredits(CipherMessageData message)
+        {
+            while (ShouldDeferPlaybackUntilVisible())
+                yield return null;
+
+            _waitChromeRoutine = null;
+            TryPlayAlienAudio(message);
+            StartTypewriter(_pendingFeed ?? string.Empty);
+        }
+
+        private IEnumerator GoodEndingBodyLineByLine(string fullText)
+        {
+            _output.text = string.Empty;
+            RefreshLayoutAndMaybePinToBottom();
+            var lines = fullText.Split('\n');
+            var buffer = new StringBuilder(256);
+            var charDelay = new WaitForSeconds(_secondsPerCharacter);
+            var betweenLines = new WaitForSeconds(_goodEndingLinePauseSeconds);
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                foreach (var ch in lines[i])
+                {
+                    buffer.Append(ch);
+                    _output.text = buffer.ToString();
+                    RefreshLayoutAndMaybePinToBottom();
+                    yield return charDelay;
+                }
+
+                if (i >= lines.Length - 1)
+                    continue;
+
+                buffer.Append('\n');
+                _output.text = buffer.ToString();
+                RefreshLayoutAndMaybePinToBottom();
+                yield return betweenLines;
+            }
+
+            RefreshLayoutAndMaybePinToBottom();
+        }
+
+        private IEnumerator GoodEndingSequence(CipherMessageData message)
+        {
+            TryPlayAlienAudio(message);
+
+            if (_presentation != null)
+            {
+                _presentation.IsDecoderSubmissionEnabled.Value = false;
+                _presentation.BlockAllPlayerInput.Value = false;
+            }
+
+            SetTerminalCommandsLocked(true);
+
+            yield return GoodEndingBodyLineByLine(message.TerminalFeedText ?? string.Empty);
+
+            SetTerminalCommandsLocked(false);
+
+            if (_presentation != null)
+            {
+                _presentation.IsDecoderSubmissionEnabled.Value = true;
+                _presentation.BlockAllPlayerInput.Value = false;
+            }
+
+            yield return new WaitForSeconds(_goodEndingCreditsDelaySeconds);
+
+            if (_endings != null && _endings.GoodEndingCredits != null && _presentation != null)
+            {
+                _presentation.TerminalEndingPlayback.Value = TerminalEndingPlayback.GoodCredits;
+                _presentation.CurrentTerminalMessage.Value = _endings.GoodEndingCredits;
+            }
+
+            _endingRoutine = null;
+        }
+
+        private IEnumerator GlitchFlickerRoutine()
+        {
+            var original = _output.text;
+            for (var i = 0; i < 10; i++)
+            {
+                _output.text = (i % 2 == 0) ? string.Empty : RandomNoiseText(original.Length);
+                RefreshLayoutAndMaybePinToBottom();
+                yield return null;
+            }
+
+            _output.text = original;
+            RefreshLayoutAndMaybePinToBottom();
+        }
+
+        private static string RandomNoiseText(int length)
+        {
+            const string chars = "01█▓▒░";
+            var sb = new StringBuilder(length);
+            for (var i = 0; i < length; i++)
+                sb.Append(chars[Random.Range(0, chars.Length)]);
+
+            return sb.ToString();
+        }
+
+        private IEnumerator RevealPlaintextDigitToLetter(string target)
+        {
+            if (string.IsNullOrEmpty(target))
+                yield break;
+
+            var current = new char[target.Length];
+            var letterIndices = new List<int>();
+            for (var i = 0; i < target.Length; i++)
+            {
+                var c = target[i];
+                if (char.IsLetter(c))
+                {
+                    current[i] = (char)('0' + Random.Range(0, 10));
+                    letterIndices.Add(i);
+                }
+                else
+                {
+                    current[i] = c;
+                }
+            }
+
+            Shuffle(letterIndices);
+
+            _output.text = new string(current);
+            RefreshLayoutAndMaybePinToBottom();
+
+            var step = new WaitForSeconds(0.04f);
+            foreach (var idx in letterIndices)
+            {
+                current[idx] = target[idx];
+                _output.text = new string(current);
+                RefreshLayoutAndMaybePinToBottom();
+                yield return step;
+            }
+        }
+
+        private static void Shuffle(IList<int> list)
+        {
+            for (var i = list.Count - 1; i > 0; i--)
+            {
+                var j = Random.Range(0, i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
+        }
+
+        private void SetTerminalCommandsLocked(bool locked) =>
+            _desktopWindow?.SetAppWindowCommandsInteractable(DesktopAppKind.Terminal, !locked);
+
+        private void StopAlienAudio() => _alienAudioSource?.Stop();
+
+        private void TryPlayAlienAudio(CipherMessageData message)
+        {
+            if (_alienAudioSource == null || _alienAudioClip == null || message == null || !message.IsAlienMessage)
+                return;
+
+            _alienAudioSource.clip = _alienAudioClip;
+            _alienAudioSource.Play();
         }
 
         private void ShowFullMessageText(CipherMessageData message)
@@ -134,6 +455,7 @@ namespace LudumDare2026.Core.Windows
             _output.text = _pendingFeed ?? string.Empty;
             UpdateScrollContentHeight();
             RefreshLayoutAndMaybePinToBottom();
+            TryPlayAlienAudio(message);
         }
 
         private void StopDeferredChromeWait()
@@ -160,14 +482,17 @@ namespace LudumDare2026.Core.Windows
                 yield break;
             }
 
+            TryPlayAlienAudio(_boundMessage);
             StartTypewriter(_pendingFeed);
         }
 
-        /// <summary>
-        /// Coroutines do not run on inactive GameObjects; <see cref="DesktopWindowChrome"/> may live on an
-        /// always-active parent while this view is under the toggled layout root, so we key off self visibility.
-        /// </summary>
-        private bool ShouldDeferPlaybackUntilVisible() => !gameObject.activeInHierarchy;
+        private bool ShouldDeferPlaybackUntilVisible()
+        {
+            if (_desktopWindow != null)
+                return !_desktopWindow.IsWindowChromeActiveInHierarchy(DesktopAppKind.Terminal);
+
+            return !gameObject.activeInHierarchy;
+        }
 
         private void ConfigureScrollRect()
         {
@@ -178,9 +503,6 @@ namespace LudumDare2026.Core.Windows
             EnsureViewportReceivesPointerEvents();
         }
 
-        /// <summary>
-        /// If the viewport lost size (0×0 etc.), stretch it to the ScrollRect parent so content is visible.
-        /// </summary>
         private void EnsureViewportFillsScrollAreaIfCollapsed()
         {
             var vp = _scrollRect.viewport;
@@ -210,10 +532,6 @@ namespace LudumDare2026.Core.Windows
             hit.raycastTarget = true;
         }
 
-        /// <summary>
-        /// TMP grows text visually but the ScrollRect <see cref="ScrollRect.content"/> height must follow
-        /// <see cref="TextMeshProUGUI.preferredHeight"/> or scrolling has no range.
-        /// </summary>
         private void UpdateScrollContentHeight()
         {
             if (_scrollRect == null || _output == null)

@@ -8,7 +8,7 @@ namespace LudumDare2026.Core.Windows
     /// Plays a long typing ambience clip while the player edits a <see cref="TMP_InputField"/>;
     /// stops playback after <see cref="_idleStopSeconds"/> without value changes (and on deselect / end edit).
     /// </summary>
-    public sealed class KeyboardTypingLoopAudio : MonoBehaviour
+    public class KeyboardTypingLoopAudio : MonoBehaviour
     {
         [SerializeField] private TMP_InputField _field;
         [SerializeField] private AudioClip _clip;

@@ -29,6 +29,8 @@ namespace LudumDare2026.Core.Windows
         [SerializeField] private float _windowTweenDuration = 0.28f;
         [SerializeField] private float _minimizeEndScale = 0.12f;
 
+        [SerializeField] private DesktopClockWidget _cornerClockWidget;
+
         private SlotState[] _runtime;
         private IWindowChromeTarget[] _chromeTargets;
         private DiContainer _container;
@@ -198,6 +200,34 @@ namespace LudumDare2026.Core.Windows
             return -1;
         }
 
+        /// <summary>
+        /// True if this app&apos;s chrome was spawned and its layout root is active (window open on screen).
+        /// </summary>
+        public bool IsWindowChromeActiveInHierarchy(DesktopAppKind appKind)
+        {
+            var idx = FindSlotIndexForAppKind(appKind);
+            if (idx < 0 || !IsValidIndex(idx))
+                return false;
+
+            if (_runtime[idx].SpawnedChrome == null)
+                return false;
+
+            return ChromeRoot(idx).activeInHierarchy;
+        }
+
+        /// <summary>Disable minimize / close / drag for one app (e.g. terminal during ending).</summary>
+        public void SetAppWindowCommandsInteractable(DesktopAppKind appKind, bool interactable)
+        {
+            var idx = FindSlotIndexForAppKind(appKind);
+            if (idx < 0 || !IsValidIndex(idx))
+                return;
+
+            if (_runtime[idx].SpawnedChrome == null)
+                return;
+
+            _runtime[idx].SpawnedChrome.SetWindowCommandsInteractable(interactable);
+        }
+
         private void EnsureSpawned(int windowIndex)
         {
             var state = _runtime[windowIndex];
@@ -214,6 +244,12 @@ namespace LudumDare2026.Core.Windows
             state.SpawnedChrome.Bind(_chromeTargets[windowIndex], options);
             state.SnapshotCaptured = false;
             CaptureSnapshotIfNeeded(windowIndex);
+
+            if (slot.AppKind == DesktopAppKind.Terminal)
+            {
+                var terminalView = instance.GetComponentInChildren<TerminalView>(true);
+                terminalView?.BindDesktopServices(this, _cornerClockWidget);
+            }
         }
 
         private RectTransform BindTaskbarButton(int windowIndex)

@@ -32,9 +32,6 @@ namespace LudumDare2026.Core.Windows
 
         private void Awake() => _rootCanvas = _layoutRoot.GetComponentInParent<Canvas>();
 
-        /// <summary>
-        /// Wires chrome buttons to the host window and applies per-window chrome options.
-        /// </summary>
         public void Bind(IWindowChromeTarget target, in DesktopWindowChromeOptions options)
         {
             _target = target;
@@ -52,9 +49,6 @@ namespace LudumDare2026.Core.Windows
             SetupTitleDrag();
         }
 
-        /// <summary>
-        /// Clears listeners when the host window is destroyed or the chrome is re-bound.
-        /// </summary>
         public void Unbind()
         {
             TeardownTitleDrag();
@@ -71,6 +65,18 @@ namespace LudumDare2026.Core.Windows
 
             _canvasGroup.interactable = value;
             _canvasGroup.blocksRaycasts = value;
+        }
+
+        public void SetWindowCommandsInteractable(bool value)
+        {
+            if (_minimizeButton != null)
+                _minimizeButton.interactable = value;
+
+            if (_closeButton != null)
+                _closeButton.interactable = value;
+
+            if (_titleDragHandle != null)
+                _titleDragHandle.raycastTarget = value;
         }
 
         private void SetupTitleDrag()
@@ -96,10 +102,7 @@ namespace LudumDare2026.Core.Windows
         }
     }
 
-    /// <summary>
-    /// Lives on the same GameObject as <see cref="DesktopWindowChrome._titleDragHandle"/> (needs raycast target).
-    /// </summary>
-    public sealed class DesktopWindowChromeDrag : MonoBehaviour, UnityEngine.EventSystems.IBeginDragHandler, UnityEngine.EventSystems.IDragHandler, UnityEngine.EventSystems.IEndDragHandler
+    public class DesktopWindowChromeDrag : MonoBehaviour, UnityEngine.EventSystems.IBeginDragHandler, UnityEngine.EventSystems.IDragHandler, UnityEngine.EventSystems.IEndDragHandler
     {
         private RectTransform _moveRoot;
         private System.Func<IWindowChromeTarget> _resolveTarget;

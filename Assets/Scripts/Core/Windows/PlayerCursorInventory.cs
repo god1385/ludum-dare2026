@@ -6,7 +6,7 @@ namespace LudumDare2026.Core.Shop
     /// <summary>
     /// Tracks owned cursor skins and which one is equipped (null = use default sprites on <see cref="Desktop.GameCursorController"/>).
     /// </summary>
-    public sealed class PlayerCursorInventory
+    public class PlayerCursorInventory
     {
         private readonly HashSet<ShopCursorItemDefinition> _owned = new HashSet<ShopCursorItemDefinition>();
         private readonly ReactiveProperty<ShopCursorItemDefinition> _equipped = new ReactiveProperty<ShopCursorItemDefinition>(null);
@@ -15,6 +15,20 @@ namespace LudumDare2026.Core.Shop
 
         public bool IsOwned(ShopCursorItemDefinition definition) =>
             definition != null && _owned.Contains(definition);
+
+        public bool OwnsCursorWithId(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return false;
+
+            foreach (var d in _owned)
+            {
+                if (d != null && d.Id == id)
+                    return true;
+            }
+
+            return false;
+        }
 
         public void MarkOwned(ShopCursorItemDefinition definition)
         {

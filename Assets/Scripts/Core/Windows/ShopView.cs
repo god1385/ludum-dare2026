@@ -8,22 +8,17 @@ using Zenject;
 
 namespace LudumDare2026.Core.Shop
 {
-    /// <summary>
-    /// Populates <see cref="_itemRoot"/> with <see cref="_itemPrefab"/> rows from <see cref="_cursorItems"/> and handles purchases.
-    /// Implements <see cref="IWindowTaskbarIconSource"/> so a <see cref="DesktopAppKind.Shop"/> chrome slot gets taskbar art from this view.
-    /// </summary>
-    public sealed class ShopView : MonoBehaviour, IWindowTaskbarIconSource
+    public class ShopView : MonoBehaviour, IWindowTaskbarIconSource
     {
         [SerializeField] private Transform _itemRoot;
         [SerializeField] private CursorItemView _itemPrefab;
         [SerializeField] private ShopCursorItemDefinition[] _cursorItems;
 
-        [Header("Taskbar")]
         [SerializeField] private Sprite _taskbarIcon;
-        [Tooltip("Shown when the pointer hovers the taskbar button (same as Decoder / Notebook).")]
         [SerializeField] private Sprite _taskbarHighlightSprite;
-        [Tooltip("Shown while the taskbar button is pressed.")]
         [SerializeField] private Sprite _taskbarPressedSprite;
+        [SerializeField] private AudioSource _purchaseAudioSource;
+        [SerializeField] private AudioClip _purchaseSuccessClip;
 
         public Sprite TaskbarIcon => _taskbarIcon;
         public Sprite TaskbarHighlightSprite => _taskbarHighlightSprite;
@@ -46,10 +41,6 @@ namespace LudumDare2026.Core.Shop
 
         private void OnDisable() => _disposables.Clear();
 
-        /// <summary>
-        /// <see cref="OnEnable"/> runs before <see cref="Construct"/> on freshly <c>Instantiate</c>d chrome;
-        /// Zenject injects after spawn, so subscriptions must wait until dependencies exist.
-        /// </summary>
         private void BindReactiveStreamsIfReady()
         {
             if (_wallet == null || _inventory == null)
@@ -115,7 +106,16 @@ namespace LudumDare2026.Core.Shop
 
             _inventory.MarkOwned(def);
             _inventory.TryEquip(def);
+            PlayPurchaseSuccess();
             Rebuild();
+        }
+
+        private void PlayPurchaseSuccess()
+        {
+            if (_purchaseAudioSource == null || _purchaseSuccessClip == null)
+                return;
+
+            _purchaseAudioSource.PlayOneShot(_purchaseSuccessClip);
         }
 
         private void OnEquipClicked(CursorItemView row)

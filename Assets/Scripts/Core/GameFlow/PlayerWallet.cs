@@ -2,7 +2,7 @@ using UniRx;
 
 namespace LudumDare2026.Core.GameFlow
 {
-    public sealed class PlayerWallet : IPlayerWallet
+    public class PlayerWallet : IPlayerWallet
     {
         private readonly ReactiveProperty<int> _dollars = new ReactiveProperty<int>(0);
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using LudumDare2026.Core.GameFlow;
 using LudumDare2026.Core.Shop;
 using TMPro;
 using UniRx;
@@ -10,28 +11,33 @@ using Zenject;
 
 namespace LudumDare2026.Core.Desktop
 {
-    /// <summary>
-    /// Software cursor + hover sprite over common UI click targets + click sound from equipped skin.
-    /// Place one instance in the scene; assign default sprites and optional default click sound.
-    /// </summary>
-    public sealed class GameCursorController : MonoBehaviour
+    public class GameCursorController : MonoBehaviour
     {
-        [SerializeField] private Sprite _defaultCursor;
-        [SerializeField] private Sprite _defaultCursorClick;
+        [Header("Default cursor (when no shop skin is equipped)")]
+        [SerializeField] private Texture2D _defaultCursorTexture;
+        [SerializeField] private Vector2Int _defaultCursorHotspot;
+        [SerializeField] private Texture2D _defaultCursorClickTexture;
+        [SerializeField] private Vector2Int _defaultCursorClickHotspot;
+
         [SerializeField] private AudioClip _defaultClickSound;
         [Tooltip("Optional: assign a dedicated AudioSource on the scene for UI clicks. If empty, one is added on this object.")]
         [SerializeField] private AudioSource _clickAudioSource;
 
         private PlayerCursorInventory _inventory;
+        private IGameFlowPresentationModel _presentation;
         private AudioSource _audio;
         private readonly List<RaycastResult> _raycastResults = new List<RaycastResult>(32);
-        private Sprite _lastAppliedSprite;
         private ShopCursorItemDefinition _equippedSkin;
 
+        private Texture2D _lastTexture;
+        private Vector2Int _lastHotspot;
+        private bool _lastOverClickable;
+
         [Inject]
-        private void Construct(PlayerCursorInventory inventory)
+        private void Construct(PlayerCursorInventory inventory, [InjectOptional] IGameFlowPresentationModel presentation)
         {
             _inventory = inventory;
+            _presentation = presentation;
         }
 
         private void Awake()
@@ -51,11 +57,16 @@ namespace LudumDare2026.Core.Desktop
         private void OnEquippedChanged(ShopCursorItemDefinition skin)
         {
             _equippedSkin = skin;
-            _lastAppliedSprite = null;
+            _lastTexture = null;
+            _lastHotspot = default;
+            _lastOverClickable = false;
         }
 
         private void LateUpdate()
         {
+            if (_presentation != null && _presentation.BlockAllPlayerInput.Value)
+                return;
+
             if (WasPrimaryClickPressedThisFrame())
             {
                 var clip = _equippedSkin != null && _equippedSkin.ClickSound != null
@@ -67,14 +78,44 @@ namespace LudumDare2026.Core.Desktop
             }
 
             var overClickable = IsPointerOverClickableUi();
-            var normal = _equippedSkin != null ? _equippedSkin.DefaultCursorIcon : _defaultCursor;
-            var hover = _equippedSkin != null ? _equippedSkin.ClickCursorIcon : _defaultCursorClick;
-            var target = overClickable ? hover : normal;
-            if (target == _lastAppliedSprite)
+
+            Texture2D tex;
+            Vector2Int hotspot;
+
+            if (_equippedSkin != null)
+            {
+                if (overClickable && _equippedSkin.ClickCursorTexture != null)
+                {
+                    tex = _equippedSkin.ClickCursorTexture;
+                    hotspot = _equippedSkin.ClickHotspot;
+                }
+                else
+                {
+                    tex = _equippedSkin.DefaultCursorTexture;
+                    hotspot = _equippedSkin.DefaultHotspot;
+                }
+            }
+            else
+            {
+                if (overClickable && _defaultCursorClickTexture != null)
+                {
+                    tex = _defaultCursorClickTexture;
+                    hotspot = _defaultCursorClickHotspot;
+                }
+                else
+                {
+                    tex = _defaultCursorTexture;
+                    hotspot = _defaultCursorHotspot;
+                }
+            }
+
+            if (tex == _lastTexture && hotspot == _lastHotspot && overClickable == _lastOverClickable)
                 return;
 
-            ApplySoftwareCursor(target);
-            _lastAppliedSprite = target;
+            ApplySoftwareCursor(tex, hotspot);
+            _lastTexture = tex;
+            _lastHotspot = hotspot;
+            _lastOverClickable = overClickable;
         }
 
         private static bool WasPrimaryClickPressedThisFrame()
@@ -127,19 +168,15 @@ namespace LudumDare2026.Core.Desktop
             return false;
         }
 
-        private static void ApplySoftwareCursor(Sprite sprite)
+        private static void ApplySoftwareCursor(Texture2D texture, Vector2Int hotspot)
         {
-            if (sprite == null)
+            if (texture == null)
             {
                 global::UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
                 return;
             }
 
-            var hotspot = new Vector2Int(
-                Mathf.RoundToInt(sprite.pivot.x),
-                Mathf.RoundToInt(sprite.rect.height - sprite.pivot.y));
-
-            global::UnityEngine.Cursor.SetCursor(sprite.texture, hotspot, CursorMode.Auto);
+            global::UnityEngine.Cursor.SetCursor(texture, (Vector2)hotspot, CursorMode.Auto);
         }
     }
 }

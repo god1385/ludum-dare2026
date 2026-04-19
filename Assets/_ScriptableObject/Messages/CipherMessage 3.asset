@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed56db8126e10e94e9c7757e5a777485, type: 3}
+  m_Name: CipherMessage 3
+  m_EditorClassIdentifier: 
+  _title: 
+  _encryptedBody: 
+  _tags:
+  - cipher
+  - urgent
+  _expectedAnswer: WE SENT THE PHOTOS
+  _terminalFeed: 23(5)_19(5)(14)20_20(8)(5)_16(8)(15)20(15)19
+  _clockTimeText: '00:10 '
+  _isEndingMessage: 0
+  _endingTranslationRevealText: 

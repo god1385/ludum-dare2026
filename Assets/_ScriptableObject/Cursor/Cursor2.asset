@@ -13,7 +13,12 @@ MonoBehaviour:
   m_Name: Cursor2
   m_EditorClassIdentifier: 
   _id: 3
-  _defaultCursorIcon: {fileID: 7537721994195293343, guid: a1fc8e6856efee44c910680197d86e70, type: 3}
-  _clickCursorIcon: {fileID: -892853779351128594, guid: a1fc8e6856efee44c910680197d86e70, type: 3}
-  _price: 1
+  _defaultCursorTexture: {fileID: 2800000, guid: 4b494e8545d83ce4fa3619fc857c0326, type: 3}
+  _defaultHotspot: {x: 0, y: 0}
+  _clickCursorTexture: {fileID: 2800000, guid: 2e3f9c6f6d1f87146a14407527b17db2, type: 3}
+  _clickHotspot: {x: 0, y: 0}
+  _shopListIcon: {fileID: 7537721994195293343, guid: a1fc8e6856efee44c910680197d86e70, type: 3}
+  _priceTagDefaultSprite: {fileID: 2950868021794849091, guid: a1fc8e6856efee44c910680197d86e70, type: 3}
+  _priceTagPressedSprite: {fileID: 6599238309686549264, guid: a1fc8e6856efee44c910680197d86e70, type: 3}
+  _price: 10
   _clickSound: {fileID: 8300000, guid: 0c620f6795ce2fd46a579e0505f03f3d, type: 3}

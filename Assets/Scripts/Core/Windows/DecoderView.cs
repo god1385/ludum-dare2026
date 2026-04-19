@@ -1,5 +1,6 @@
 using LudumDare2026.Core.GameFlow;
 using TMPro;
+using UniRx;
 using UnityEngine;
 using UnityEngine.UI;
 using Zenject;
@@ -18,6 +19,7 @@ namespace LudumDare2026.Core.Windows
         [SerializeField] private Sprite _taskbarPressedSprite;
 
         private IGameFlowPresentationModel _presentation;
+        private CompositeDisposable _disposables;
 
         [Inject]
         private void Construct(IGameFlowPresentationModel presentation) => _presentation = presentation;
@@ -32,9 +34,26 @@ namespace LudumDare2026.Core.Windows
             KeyboardTypingLoopAudio.Ensure(_answerField, _keyboardTypingLoop, 0.5f, _keyboardTypingAudioSource);
         }
 
+        private void Start()
+        {
+            if (_presentation == null)
+                return;
+
+            _disposables = new CompositeDisposable();
+            _presentation.IsDecoderSubmissionEnabled.Subscribe(OnDecoderGateChanged).AddTo(_disposables);
+        }
+
+        private void OnDestroy() => _disposables?.Dispose();
+
+        private void OnDecoderGateChanged(bool enabled)
+        {
+            _submitButton.interactable = enabled;
+            _answerField.interactable = enabled;
+        }
+
         private void SubmitAnswer()
         {
-            if (_presentation != null)
+            if (_presentation != null && _presentation.IsDecoderSubmissionEnabled.Value)
                 _presentation.PublishDecoderAnswer(_answerField.text);
         }
     }

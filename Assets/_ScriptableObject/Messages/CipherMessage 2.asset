@@ -17,5 +17,9 @@ MonoBehaviour:
   _tags:
   - cipher
   - urgent
-  _expectedAnswer: 
-  _terminalFeed: 
+  _expectedAnswer: WE NEED FUEL
+  _terminalFeed: 23(5)_14(5)(5)4_6(21)(5)(12)
+  _clockTimeText: '00:05 '
+  _isEndingMessage: 0
+  _endingTranslationRevealText: 
+  _isAlienMessage: 0

@@ -17,12 +17,15 @@ MonoBehaviour:
   _tags:
   - cipher
   - urgent
-  _expectedAnswer: start
+  _expectedAnswer: ITS A TEST
   _terminalFeed: "Hey there, newbie. Sadly, I won\u2019t be there to show you the
     ropes.\r\nBut the job is simple, really! You will get crypted messages from our
     astronauts to your Terminal. Don\u2019t be intimidated, I left you a reference
     sheet to decrypt them :P\r\nUse Decryptor to send decrypted messages to our database.
     You will be rewarded for each decrypted message. Piece of cake!\r\nDon\u2019t
-    be shy to make notes if messages turn out to be long and tricky.\r\nIf you feel
-    bored, well\u2026 It\u2019s not a lot but there is a minesweeper I downloaded!\r\nHave
-    fun and have a good night.\r\nYour mentor Susan xoxo\n\n\n9(20)_1_20(5)19(20)"
+    be shy to make notes if messages turn out to be long and tricky.\r\nHave fun
+    and have a good night.\r\nYour mentor Susan xoxo\n\n\n9(20)_1_20(5)19(20)"
+  _clockTimeText: 00:00
+  _isEndingMessage: 0
+  _endingTranslationRevealText: 
+  _isAlienMessage: 0

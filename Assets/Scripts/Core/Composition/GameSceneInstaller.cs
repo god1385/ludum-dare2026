@@ -20,6 +20,7 @@ namespace LudumDare2026.Core.Composition
             Container.BindInterfacesAndSelfTo<PlayerWallet>().AsSingle();
             Container.Bind<PlayerCursorInventory>().AsSingle();
             Container.BindInterfacesAndSelfTo<GameFlowController>().FromComponentInHierarchy().AsSingle();
+            Container.Bind<GameExitFlowController>().FromComponentInHierarchy().AsSingle();
             Container.BindInterfacesAndSelfTo<ReactiveGameHudBinder>().FromComponentInHierarchy().AsSingle();
             Container.Bind<GameCursorController>().FromComponentInHierarchy().AsSingle();
         }
