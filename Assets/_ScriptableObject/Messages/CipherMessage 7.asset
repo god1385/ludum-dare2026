@@ -17,8 +17,9 @@ MonoBehaviour:
   _tags:
   - cipher
   - urgent
-  _expectedAnswer: DAN INSPECTS IT
+  _expectedAnswer: THE SHIP IS OKAY
   _terminalFeed: 20(8)(5)_19(8)9(16)_9(19)_15(11)1(25)
   _clockTimeText: '00:27 '
   _isEndingMessage: 0
   _endingTranslationRevealText: 
+  _isAlienMessage: 0
